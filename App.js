@@ -1,15 +1,12 @@
 import { StatusBar } from "expo-status-bar";
 import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  ImageBackground,
-  Pressable,
-  Alert,
-} from "react-native";
-import bg from "./assets/bg.jpeg";
+import { StyleSheet, Text, View, ImageBackground, Alert } from "react-native";
+import bg from "./assets/blur.png";
 import Cell from "./src/components/Cell";
+import WoodBtn from "./src/components/WoodBtn";
+import WoodBtnBg from "./assets/wodden-btn.png";
+import { Audio } from "expo-av";
+import UiModal from "./src/components/Modal";
 
 const emptyMap = [
   ["", "", ""], // 1st row
@@ -18,12 +15,9 @@ const emptyMap = [
 ];
 
 const copyArray = (original) => {
-  console.log("ghe");
-  console.log(original);
   const copy = original.map((arr) => {
     return arr.slice();
   });
-  console.log(copy);
   return copy;
 };
 
@@ -31,6 +25,9 @@ export default function App() {
   const [map, setMap] = useState(emptyMap);
   const [currentTurn, setCurrentTurn] = useState("x");
   const [gameMode, setGameMode] = useState("BOT_MEDIUM"); // LOCAL, BOT_EASY, BOT_MEDIUM;
+  const [tapSound, setTapSound] = useState();
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
 
   useEffect(() => {
     if (currentTurn === "o" && gameMode !== "LOCAL") {
@@ -47,7 +44,27 @@ export default function App() {
     }
   }, [map]);
 
-  const onPress = (rowIndex, columnIndex) => {
+  useEffect(() => {
+    return tapSound
+      ? () => {
+          tapSound.unloadAsync();
+        }
+      : undefined;
+  }, [tapSound]);
+
+  async function playSound() {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require("./media/tap.wav")
+      );
+      setTapSound(sound);
+      await sound.playAsync();
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const onPress = async (rowIndex, columnIndex) => {
     if (map[rowIndex][columnIndex] !== "") {
       Alert.alert("Position already occupied");
       return;
@@ -59,6 +76,7 @@ export default function App() {
       return updatedMap;
     });
 
+    await playSound();
     setCurrentTurn(currentTurn === "x" ? "o" : "x");
   };
 
@@ -129,22 +147,14 @@ export default function App() {
 
   const checkTieState = () => {
     if (!map.some((row) => row.some((cell) => cell === ""))) {
-      Alert.alert(`It's a tie`, `tie`, [
-        {
-          text: "Restart",
-          onPress: resetGame,
-        },
-      ]);
+      setShowModal(true);
+      setModalMessage(`It's a tie`);
     }
   };
 
   const gameWon = (player) => {
-    Alert.alert(`Huraaay`, `Player ${player} won`, [
-      {
-        text: "Restart",
-        onPress: resetGame,
-      },
-    ]);
+    setShowModal(true);
+    setModalMessage(`Huraaay ,Player ${player.toUpperCase()} won`);
   };
 
   const resetGame = () => {
@@ -154,6 +164,13 @@ export default function App() {
       ["", "", ""], // 3rd row
     ]);
     setCurrentTurn("x");
+    handleCloseModal();
+  };
+
+  const changeGameMode = (mode) => {
+    if (mode === gameMode) return;
+    setGameMode(mode);
+    resetGame();
   };
 
   const botTurn = () => {
@@ -211,71 +228,122 @@ export default function App() {
     }
   };
 
+  const handleCloseModal = () => setShowModal(false);
+
   return (
     <View style={styles.container}>
-      <ImageBackground source={bg} style={styles.bg} resizeMode="contain">
-        <Text
+      <ImageBackground source={bg} style={styles.bg} resizeMode="cover">
+        <ImageBackground
           style={{
-            fontSize: 24,
-            color: "white",
+            width: 250,
+            height: 100,
             position: "absolute",
             top: 50,
+            justifyContent: "center",
+            alignItems: "center",
           }}
+          source={WoodBtnBg}
+          width={200}
+          height={150}
         >
-          Current Turn: {currentTurn.toUpperCase()}
-        </Text>
-        <View style={styles.map}>
-          {map.map((row, rowIndex) => (
-            <View key={`row-${rowIndex}`} style={styles.row}>
-              {row.map((cell, columnIndex) => (
-                <Cell
-                  key={`row-${rowIndex}-col-${columnIndex}`}
-                  cell={cell}
-                  onPress={() => onPress(rowIndex, columnIndex)}
-                />
-              ))}
-            </View>
-          ))}
-        </View>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              style={{
+                fontSize: 30,
+                color: "white",
+                fontWeight: "900",
+              }}
+            >
+              Current Turn:{" "}
+            </Text>
+            <Text
+              style={{
+                color: currentTurn === "x" ? "#10b981" : "#06b6d4",
+                elevation: 8,
+                fontSize: 40,
+                fontWeight: "900",
+              }}
+            >
+              {currentTurn.toUpperCase()}
+            </Text>
+          </View>
+        </ImageBackground>
+        <ImageBackground
+          style={{
+            width: 350,
+            height: 350,
+            aspectRatio: "1/1",
+          }}
+          resizeMode="cover"
+          source={require("./assets/final-board.png")}
+        >
+          <View
+            style={[
+              // styles.map,
+              {
+                // display: "none",
+                // position: "absolute",
+                // width: 260,
+                // height: 260,
+                aspectRatio: 1,
+                transform: [
+                  {
+                    translateX: 38,
+                  },
+                  {
+                    translateY: 30,
+                  },
+                ],
+                // top: 17,
+                // left: 46,
+              },
+            ]}
+          >
+            {map.map((row, rowIndex) => (
+              <View key={`row-${rowIndex}`} style={styles.row}>
+                {row.map((cell, columnIndex) => (
+                  <Cell
+                    key={`row-${rowIndex}-col-${columnIndex}`}
+                    cell={cell}
+                    onPress={() => onPress(rowIndex, columnIndex)}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
+        </ImageBackground>
 
         <View style={styles.buttons}>
-          <Text
-            onPress={() => setGameMode("LOCAL")}
-            style={[
-              styles.button,
-              { backgroundColor: gameMode === "LOCAL" ? "#4F5686" : "#191F24" },
-            ]}
+          <WoodBtn
+            active={gameMode === "LOCAL"}
+            onClick={() => changeGameMode("LOCAL")}
           >
-            Local
-          </Text>
-          <Text
-            onPress={() => setGameMode("BOT_EASY")}
-            style={[
-              styles.button,
-              {
-                backgroundColor:
-                  gameMode === "BOT_EASY" ? "#4F5686" : "#191F24",
-              },
-            ]}
+            Practice
+          </WoodBtn>
+
+          <WoodBtn
+            active={gameMode === "BOT_EASY"}
+            onClick={() => changeGameMode("BOT_EASY")}
           >
-            Easy Bot
-          </Text>
-          <Text
-            onPress={() => setGameMode("BOT_MEDIUM")}
-            style={[
-              styles.button,
-              {
-                backgroundColor:
-                  gameMode === "BOT_MEDIUM" ? "#4F5686" : "#191F24",
-              },
-            ]}
+            Easy
+          </WoodBtn>
+
+          <WoodBtn
+            active={gameMode === "BOT_MEDIUM"}
+            onClick={() => changeGameMode("BOT_MEDIUM")}
           >
-            Medium Bot
-          </Text>
+            Hard
+          </WoodBtn>
         </View>
       </ImageBackground>
 
-      <StatusBar style="auto" />
+      <StatusBar hidden hideTransitionAnimation="slide" />
+      <UiModal
+        show={showModal}
+        handleReset={resetGame}
+        message={modalMessage}
+        onClose={handleCloseModal}
+      />
     </View>
   );
 }
@@ -297,17 +365,20 @@ const styles = StyleSheet.create({
     paddingTop: 15,
   },
   map: {
-    width: "80%",
-    aspectRatio: 1,
+    // width: "80%",
+    // aspectRatio: 1,
   },
   row: {
-    flex: 1,
+    // flex: 1,
     flexDirection: "row",
   },
   buttons: {
     position: "absolute",
     bottom: 50,
     flexDirection: "row",
+    width: "80%",
+    justifyContent: "space-between",
+    marginHorizontal: "auto",
   },
   button: {
     color: "white",
