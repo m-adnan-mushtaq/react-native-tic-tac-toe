@@ -19,7 +19,7 @@ const styles = StyleSheet.create({
     left: "48%",
     width: 10,
     height: "100%",
-    backgroundColor: "white",
+    backgroundColor: "#10b981",
     borderRadius: 5,
     transform: [
       {
